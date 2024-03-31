@@ -3,13 +3,14 @@ package main
 import (
 	"container/list"
 	"context"
+	"fmt"
 	"io"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/Abro00/dca/v2"
 	"github.com/bwmarrin/discordgo"
-	"github.com/jonas747/dca/v2"
 	"github.com/kkdai/youtube/v2"
 )
 
@@ -65,31 +66,31 @@ func NewPlayer(vc *discordgo.VoiceConnection) *Player {
 	}
 
 	// start streaming goroutine
-	go plr.stream()
+	go plr.run()
 
 	return plr
 }
 
-func (plr *Player)GetState() uint8 {
+func (plr *Player) GetState() uint8 {
 	plr.RLock()
 	state := plr.state
 	plr.RUnlock()
 	return state
 }
 
-func (plr *Player)AddCallback(state uint8, callback func()) {
+func (plr *Player) AddCallback(state uint8, callback func()) {
 	plr.Lock()
 	plr.cbMap[state] = append(plr.cbMap[state], callback)
 	plr.Unlock()
 }
 
-func (plr *Player)ClearCallbacks(state uint8) {
+func (plr *Player) ClearCallbacks(state uint8) {
 	plr.Lock()
 	plr.cbMap[state] = []func(){}
 	plr.Unlock()
 }
 
-func (plr *Player)changeState(state uint8) {
+func (plr *Player) changeState(state uint8) {
 	plr.Lock()
 	plr.state = state
 	callbacks := plr.cbMap[state]
@@ -102,7 +103,7 @@ func (plr *Player)changeState(state uint8) {
 	}
 }
 
-func (plr *Player)Add(videos []*youtube.Video) {
+func (plr *Player) Add(videos []*youtube.Video) {
 	plr.Lock()
 	for _, video := range videos {
 		plr.PlayerQueue.PushBack(video)
@@ -110,7 +111,7 @@ func (plr *Player)Add(videos []*youtube.Video) {
 	plr.Unlock()
 }
 
-func (plr *Player)Play() {
+func (plr *Player) Play() {
 	if plr.GetState() != PlayerStoppedState {
 		return
 	}
@@ -119,15 +120,43 @@ func (plr *Player)Play() {
 	plr.changeState(PlayerPlayingState)
 }
 
-func (plr *Player)Stop() {
+func (plr *Player) Stop() {
 	plr.changeState(PlayerStoppedState)
-	plr.ctx.cancel()
 }
 
-func (plr *Player)Clear() {
+func (plr *Player) Clear() {
 	plr.Lock()
 	plr.PlayerQueue.Init()
 	plr.Unlock()
+}
+
+func (plr *Player) Remove(pos int64) (*youtube.Video, error) {
+	plr.Lock()
+	defer plr.Unlock()
+	elem := plr.PlayerQueue.Front()
+	for i := 1; int64(i) < pos; i++ {
+		elem = elem.Next()
+	}
+	if elem == nil {
+		return nil, fmt.Errorf("No track at %d position", pos)
+	}
+	elemVal := plr.PlayerQueue.Remove(elem)
+
+	track := elemVal.(*youtube.Video)
+
+	return track, nil
+}
+
+func (plr *Player) Pause() {
+	plr.changeState(PlayerPausedState)
+}
+
+func (plr *Player) Resume() {
+	plr.changeState(PlayerPlayingState)
+}
+
+func (plr *Player) Shutdown() {
+	plr.ctx.cancel()
 }
 
 // always must .Cleanup() session after use
@@ -141,8 +170,7 @@ func getEncodingSession(video *youtube.Video) (*dca.EncodeSession, error) {
 	// options.Application = dca.AudioApplicationLowDelay
 	options.Channels = 1
 	// options.Bitrate = 96
-	// options.Bitrate = 128
-	// options.FrameRate = 96000
+	options.Bitrate = 128
 
 	encodingSession, err := dca.EncodeFile(streamUrl, options)
 	if err != nil {
@@ -152,6 +180,7 @@ func getEncodingSession(video *youtube.Video) (*dca.EncodeSession, error) {
 	return encodingSession, nil
 }
 
+// TODO: возможно стоит выбирать видео mp4 выского качества, а не webm audio
 func getStreamUrl(video *youtube.Video) (string, error) {
 
 	audioFormats := video.Formats.Type("audio/webm")
@@ -166,11 +195,11 @@ func getStreamUrl(video *youtube.Video) (string, error) {
 	return streamUrl, nil
 }
 
-// run go stream to create streaming session
-// stream works in two loops:
+// run go run to create streaming session
+// run works in two loops:
 // first - getting track from queue, if queue is empty, cancel context and change state to stopped
 // second - sending opus to vc and breaks when opus ended; if
-func (plr *Player)stream() {
+func (plr *Player) run() {
 	var encodingSession *dca.EncodeSession
 	defer func() {
 		plr.vc.Disconnect()
@@ -180,21 +209,8 @@ func (plr *Player)stream() {
 	}()
 
 	opusChan := make(chan []byte)
-	// receive frames in loop
-	go func() {
-		for {
-			breakLoop := func() bool {
-				select {
-				case opus := <- opusChan:
-					plr.vc.OpusSend <- opus
-					return false
-				case <- plr.ctx.Done():
-					return true
-				}
-			}()
-			if breakLoop { break }
-		}
-	}()
+
+	go plr.stream(opusChan)
 
 
 	// load new track
@@ -209,6 +225,7 @@ func (plr *Player)stream() {
 				track := plr.CurrentPlaying
 				plr.Unlock()
 
+				// get new track from queue
 				if track == nil {
 					plr.Lock()
 					if plr.PlayerQueue.Len() < 1 {
@@ -251,20 +268,27 @@ func (plr *Player)stream() {
 							logger.Errorf("Error reading opus: %s", err.Error())
 							plr.changeState(PlayerStoppedState)
 						}
-						// REMOVE
-						// TODO: плеер выкидывает ошибку на последних байтах, не доигрывая трек до конца
-						logger.Debugf("EOF err: %#v, opus(%d): %#v ", err, len(opus), opus)
+
 						plr.Lock()
 						plr.CurrentPlaying = nil
 						plr.Unlock()
-						encodingSession.Cleanup()
-						encodingSession = nil
+
+						if encodingSession != nil {
+							encodingSession.Cleanup()
+							encodingSession = nil
+						}
+
+						time.Sleep(time.Second)
+
 						return false
 					}
 
 					select {
 					case <- plr.StateChanged:
 						return false
+					case <- plr.timer.C:
+						plr.ctx.cancel()
+						return true
 					case <- plr.ctx.Done():
 						return true
 					case opusChan <- opus:
@@ -299,6 +323,9 @@ func (plr *Player)stream() {
 				select {
 				case <- plr.StateChanged:
 					return false
+				case <- plr.timer.C:
+					plr.ctx.cancel()
+					return true
 				case <- plr.ctx.Done():
 					return true
 				}
@@ -311,5 +338,21 @@ func (plr *Player)stream() {
 		if breakLoop {
 			break
 		}
+	}
+}
+
+// send frames in loop
+func (plr *Player) stream(opusCh <-chan []byte) {
+	for {
+		breakLoop := func() bool {
+			select {
+			case opus := <- opusCh:
+				plr.vc.OpusSend <- opus
+				return false
+			case <- plr.ctx.Done():
+				return true
+			}
+		}()
+		if breakLoop { break }
 	}
 }

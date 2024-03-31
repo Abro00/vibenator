@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/list"
 	"fmt"
 	"os"
 	"time"
@@ -21,7 +22,23 @@ func getEnv(key, fallback string) string {
 }
 
 func TrackString(video *youtube.Video) string {
-	return fmt.Sprintf("%s | %s %s", video.Author, video.Title, FormatDuration(video.Duration))
+	return fmt.Sprintf("[%s] %s - %s", video.Author, video.Title, FormatDuration(video.Duration))
+}
+
+func QueueString(queue list.List) string {
+  result := ""
+  elem := queue.Front()
+  if elem != nil {
+    for i := 0; i < 10; i++ {
+      queueVal := elem.Value
+      queueTrack := queueVal.(*youtube.Video)
+      result += fmt.Sprintf("%d. %s\n", i+1, TrackString(queueTrack))
+
+      elem = elem.Next()
+      if elem == nil { return result }
+    }
+  }
+  return result
 }
 
 func FormatDuration(d time.Duration) string {

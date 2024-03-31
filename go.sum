@@ -1,3 +1,5 @@
+github.com/Abro00/dca/v2 v2.0.1 h1:s5/R9pfke9qT0VShKBjBILkG1HnP6eobMcGrOaaUE6Y=
+github.com/Abro00/dca/v2 v2.0.1/go.mod h1:YyeqToVp26Yl8TO0prQ9JltDCXzi/tGe7QGAxJHZDzI=
 github.com/bitly/go-simplejson v0.5.1 h1:xgwPbetQScXt1gh9BmoJ6j9JMr3TElvuIyjR8pgdoow=
 github.com/bitly/go-simplejson v0.5.1/go.mod h1:YOPVLzCfwK14b4Sff3oP1AmGhI9T9Vsg84etUnlyp+Q=
 github.com/bwmarrin/discordgo v0.27.1 h1:ib9AIc/dom1E/fSIulrBwnez0CToJE113ZGt4HoliGY=
@@ -25,8 +27,6 @@ github.com/google/pprof v0.0.0-20240227163752-401108e1b7e7/go.mod h1:czg5+yv1E0Z
 github.com/gorilla/websocket v1.4.2 h1:+/TMaTYc4QFitKJxsQ7Yye35DkWvkdLcvGKqM+x0Ufc=
 github.com/gorilla/websocket v1.4.2/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/ianlancetaylor/demangle v0.0.0-20220319035150-800ac71e25c2/go.mod h1:aYm2/VgdVmcIU8iMfdMvDMsRAQjcfZSKFby6HOFvi/w=
-github.com/jonas747/dca/v2 v2.0.0 h1:27SRgmKjJFA6jequrkkAmpx1c7AZ8OsMbTzdxGLUiHw=
-github.com/jonas747/dca/v2 v2.0.0/go.mod h1:WDY2/zvnIu1JbKQUG4SJW9FcVRWYRKlGe+fz0ZR96BM=
 github.com/jonas747/ogg v0.0.0-20161220051205-b4f6f4cf3757 h1:Kyv+zTfWIGRNaz/4+lS+CxvuKVZSKFz/6G8E3BKKBRs=
 github.com/jonas747/ogg v0.0.0-20161220051205-b4f6f4cf3757/go.mod h1:cZnNmdLiLpihzgIVqiaQppi9Ts3D4qF/M45//yW35nI=
 github.com/kkdai/youtube/v2 v2.10.1 h1:jdPho4R7VxWoRi9Wx4ULMq4+hlzSVOXxh4Zh83f2F9M=

@@ -3,8 +3,8 @@ module vibenator
 go 1.21.8
 
 require (
+	github.com/Abro00/dca/v2 v2.0.1
 	github.com/bwmarrin/discordgo v0.27.1
-	github.com/jonas747/dca/v2 v2.0.0
 	github.com/kkdai/youtube/v2 v2.10.1
 )
 

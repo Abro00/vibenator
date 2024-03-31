@@ -25,37 +25,41 @@ var (
 		},
 		{
 			Name: "stop",
-			Description: "Stop player and clear query",
+			Description: "Stop player and clear queue",
 		},
-		// {
-		// 	Name: "pause",
-		// 	Description: "Pause player",
-		// },
-		// {
-		// 	Name: "resume",
-		// 	Description: "Resume player",
-		// },
-		// {
-		// 	Name: "query",
-		// 	Description: "Show current player query",
-		// },
-		// {
-		// 	Name: "leave",
-		// 	Description: "Leave voice channel",
-		// },
-		// {
-		// 	Name: "remove",
-		// 	Description: "Remove track from query",
-		// 	Options: []*discordgo.ApplicationCommandOption{
-		// 		{
-		// 			Type: discordgo.ApplicationCommandOptionInteger,
-		// 			Name: "position",
-		// 			Description: "track position in query",
-		// 			Required: true,
-		// 			MinValue: &minQueryPos,
-		// 		},
-		// 	},
-		// },
+		{
+			Name: "clear",
+			Description: "Clear player's queue",
+		},
+		{
+			Name: "pause",
+			Description: "Pause player",
+		},
+		{
+			Name: "resume",
+			Description: "Resume player",
+		},
+		{
+			Name: "queue",
+			Description: "Show current player queue",
+		},
+		{
+			Name: "leave",
+			Description: "Leave voice channel",
+		},
+		{
+			Name: "remove",
+			Description: "Remove track from query",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type: discordgo.ApplicationCommandOptionInteger,
+					Name: "position",
+					Description: "track position in query",
+					Required: true,
+					MinValue: &minQueryPos,
+				},
+			},
+		},
 		// {
 		// 	// TODO: сделать опции через iota-const, определенные в плеере
 		// 	Name: "loop",
@@ -87,11 +91,12 @@ var (
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string){
 		"play":   playCmdHandler,
 		"stop":   stopCmdHandler,
-		// "pause":  pauseCmdHandler,
-		// "resume": resumeCmdHandler,
-		// "query":  queryCmdHandler,
-		// "leave":  leaveCmdHandler,
-		// "remove": removeCmdHandler,
+		"clear":  clearCmdHandler,
+		"pause":  pauseCmdHandler,
+		"resume": resumeCmdHandler,
+		"queue":  queueCmdHandler,
+		"leave":  leaveCmdHandler,
+		"remove": removeCmdHandler,
 		// "loop":   loopCmdHandler,
 	}
 )
@@ -220,12 +225,161 @@ func stopCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID s
 		player.Clear()
 		player.Stop()
 		delete(PlayersMap, i.GuildID)
+
+		// TODO: Format response to user
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("Player stopped"),
+			},
+		})
+		return
 	}
-	// TODO: Format response to user
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("Player stopped"),
-		},
-	})
+
+	ErrorInteractionResponse(s, i, "can't stop player")
+}
+
+func clearCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string) {
+	if cfg.Debug { logger.Debugf("Sent /clear command") }
+
+	player, ok := PlayersMap[i.GuildID]
+	if ok {
+		player.Clear()
+
+		// TODO: Format response to user
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("Player queue cleared"),
+			},
+		})
+		return
+	}
+
+	ErrorInteractionResponse(s, i, "can't clear player's queue")
+}
+
+func pauseCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string) {
+	if cfg.Debug { logger.Debugf("Sent /pause command") }
+
+	player, ok := PlayersMap[i.GuildID]
+	if ok {
+		player.Pause()
+
+		// TODO: Format response to user
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("Player paused"),
+			},
+		})
+		return
+	}
+
+	ErrorInteractionResponse(s, i, "can't pause player")
+}
+
+func queueCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string) {
+	if cfg.Debug { logger.Debugf("Sent /queue command") }
+
+	player, ok := PlayersMap[i.GuildID]
+	if ok {
+		current := *player.CurrentPlaying
+		queue := *player.PlayerQueue
+
+		// TODO: Format response to user
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("=== QUEUE ===\n```\nCurrent:\n0. %s\n----------\n%s```",
+					TrackString(&current),
+					QueueString(queue),
+				),
+			},
+		})
+		return
+	}
+
+	ErrorInteractionResponse(s, i, "Can't get player's queue")
+}
+
+func removeCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string) {
+	options := i.ApplicationCommandData().Options
+	optionsMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionsMap[opt.Name] = opt
+	}
+
+	pos, ok := optionsMap["position"]
+	if !ok {
+		// TODO: respond to discord
+		logger.Errorf("Wrong [%s] command options: %+v", i.ApplicationCommandData().Name, optionsMap)
+		return
+	}
+	posInt := pos.IntValue()
+
+	if cfg.Debug { logger.Debugf("Sent /remove command with pos: %d", posInt) }
+
+	player, ok := PlayersMap[i.GuildID]
+	if ok {
+		track, err := player.Remove(posInt)
+
+		var resp string
+		if err != nil {
+			resp = fmt.Sprintf("Can't remove track with position %d from queue:\n%s", posInt, err.Error())
+		} else {
+			resp = fmt.Sprintf("Track removed from queue:\n%d. %s", posInt, TrackString(track))
+		}
+
+		// TODO: Format response to user
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: resp,
+			},
+		})
+		return
+	}
+
+	ErrorInteractionResponse(s, i, "Can't resume player")
+}
+
+func resumeCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string) {
+	if cfg.Debug { logger.Debugf("Sent /resume command") }
+
+	player, ok := PlayersMap[i.GuildID]
+	if ok {
+		player.Resume()
+
+		// TODO: Format response to user
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("Player resumed"),
+			},
+		})
+		return
+	}
+
+	ErrorInteractionResponse(s, i, "can't resume player")
+}
+
+func leaveCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string) {
+	if cfg.Debug { logger.Debugf("Sent /leave command") }
+
+	player, ok := PlayersMap[i.GuildID]
+	if ok {
+		player.Shutdown()
+
+		// TODO: Format response to user
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("Ciao"),
+			},
+		})
+		return
+	}
+
+	ErrorInteractionResponse(s, i, "can't shutdown player")
 }

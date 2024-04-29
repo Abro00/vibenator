@@ -53,9 +53,6 @@ type Player struct {
 }
 
 func NewPlayer(vc *discordgo.VoiceConnection) *Player {
-	// TODO: запускать таймер когда закончилась очередь и плеер в состоянии stopped -> сбасывать как только запускается новый трек
-	// ИЛИ если голосовом канале не осталось пользователей кроме бота -> сбасывать как только пользователь заходит в чат VoiceStateUpdate event
-	// time.NewTimer()
 	ctx, cancel := context.WithCancel(context.Background())
 	plr := &Player{
 		PlayerQueue:  list.New(),
@@ -64,6 +61,7 @@ func NewPlayer(vc *discordgo.VoiceConnection) *Player {
 		StateChanged: make(chan bool),
 		vc:           vc,
 	}
+	plr.timer.Stop()
 
 	// start streaming goroutine
 	go plr.run()
@@ -183,8 +181,16 @@ func getEncodingSession(video *youtube.Video) (*dca.EncodeSession, error) {
 // TODO: возможно стоит выбирать видео mp4 выского качества, а не webm audio
 func getStreamUrl(video *youtube.Video) (string, error) {
 
-	audioFormats := video.Formats.Type("audio/webm")
+	// вроде audio/mp4 звучит лучше чем audio/webm
+	audioFormats := video.Formats.Type("audio/mp4")
 	sort.SliceStable(audioFormats, video.SortBitrateDesc)
+
+	if cfg.Debug {
+		logger.Debugf("FORMATS:")
+		for _, af := range audioFormats {
+			logger.Debugf("%+v", af)
+		}
+	}
 
 	client := youtube.Client{}
 	streamUrl, err := client.GetStreamURL(video, &(audioFormats[0]))
@@ -213,13 +219,12 @@ func (plr *Player) run() {
 	go plr.stream(opusChan)
 
 
-	// load new track
+	// switch state loop
 	for {
 		breakLoop := func() bool {
 			switch plr.GetState() {
 			case PlayerPlayingState:
-				// get first video from list
-				// if list is empty change state to stopped and run timer
+				// TODO: если голосовой канал не пустой
 				plr.Lock()
 				plr.timer.Stop()
 				track := plr.CurrentPlaying
@@ -286,9 +291,6 @@ func (plr *Player) run() {
 					select {
 					case <- plr.StateChanged:
 						return false
-					case <- plr.timer.C:
-						plr.ctx.cancel()
-						return true
 					case <- plr.ctx.Done():
 						return true
 					case opusChan <- opus:
@@ -301,17 +303,14 @@ func (plr *Player) run() {
 					encodingSession = nil
 				}
 				plr.Lock()
-				plr.timer.Stop()
-				plr.timer = time.NewTimer(PlayerAfkTimeout)
+				plr.timer.Stop() // necessary??
+				plr.timer.Reset(PlayerAfkTimeout)
 				plr.CurrentPlaying = nil
 				plr.Unlock()
 
 				select {
 				case <- plr.StateChanged:
 					return false
-				case <- plr.timer.C:
-					plr.ctx.cancel()
-					return true
 				case <- plr.ctx.Done():
 					return true
 				}
@@ -323,9 +322,6 @@ func (plr *Player) run() {
 				select {
 				case <- plr.StateChanged:
 					return false
-				case <- plr.timer.C:
-					plr.ctx.cancel()
-					return true
 				case <- plr.ctx.Done():
 					return true
 				}
@@ -335,9 +331,7 @@ func (plr *Player) run() {
 			}
 		}()
 
-		if breakLoop {
-			break
-		}
+		if breakLoop { break }
 	}
 }
 
@@ -346,11 +340,14 @@ func (plr *Player) stream(opusCh <-chan []byte) {
 	for {
 		breakLoop := func() bool {
 			select {
+			case <- plr.ctx.Done():
+				return true
+			case <- plr.timer.C:
+				plr.ctx.cancel()
+				return true
 			case opus := <- opusCh:
 				plr.vc.OpusSend <- opus
 				return false
-			case <- plr.ctx.Done():
-				return true
 			}
 		}()
 		if breakLoop { break }

@@ -224,7 +224,6 @@ func stopCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID s
 	if ok {
 		player.Clear()
 		player.Stop()
-		delete(PlayersMap, i.GuildID)
 
 		// TODO: Format response to user
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

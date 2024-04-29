@@ -1,6 +1,5 @@
 package main
 
-
 import (
 	"fmt"
 	"log"
@@ -15,7 +14,7 @@ func NewLogger() Logger {
 
 func (logger Logger) Infof(str string, args ...any) {
 	msg := fmt.Sprintf(str, args...)
-	log.Println("[INFO]: ", msg)
+	log.Println("[INFO] : ", msg)
 }
 
 func (logger Logger) Debugf(str string, args ...any) {

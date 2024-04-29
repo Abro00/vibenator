@@ -114,7 +114,7 @@ func (plr *Player) Play() {
 		return
 	}
 
-	if cfg.Debug { logger.Debugf("playing music. queue: %d", plr.PlayerQueue.Len()) }
+	logger.Debugf("playing music. queue: %d", plr.PlayerQueue.Len())
 	plr.changeState(PlayerPlayingState)
 }
 

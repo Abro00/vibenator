@@ -138,9 +138,9 @@ func addCommandsHandler(s *discordgo.Session){
 // TODO: add flag to run program just for clearing bot's interactions
 func unregisterAllCommands(s *discordgo.Session) {
 	globalCommands, err := s.ApplicationCommands(s.State.User.ID, "")
-	if cfg.Debug { logger.Debugf("=== clearing global commands ===") }
+	logger.Infof("=== clearing global commands ===")
 	for _, cmd := range globalCommands {
-		if cfg.Debug { logger.Debugf("%+v", *cmd) }
+		logger.Debugf("%+v", *cmd)
 		err = s.ApplicationCommandDelete(s.State.User.ID, cmd.GuildID, cmd.ID)
 		if err != nil {
 			logger.Errorf(err.Error())
@@ -149,9 +149,9 @@ func unregisterAllCommands(s *discordgo.Session) {
 
 	for _, guild := range s.State.Guilds {
 		guildCommands, err := s.ApplicationCommands(s.State.User.ID, guild.ID)
-		if cfg.Debug { logger.Debugf("=== clearing guild commands ===") }
+		logger.Infof("=== clearing guild commands ===")
 		for _, cmd := range guildCommands {
-			if cfg.Debug { logger.Debugf("%+v", *cmd) }
+			logger.Debugf("%+v", *cmd)
 			err = s.ApplicationCommandDelete(s.State.User.ID, cmd.GuildID, cmd.ID)
 			if err != nil {
 				logger.Errorf(err.Error())
@@ -174,7 +174,7 @@ func playCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID s
 		return
 	}
 
-	if cfg.Debug {logger.Debugf("Sent /play command with query: %s", query.StringValue())}
+	logger.Infof("Received /play command with query: %s", query.StringValue())
 
 	videos, err := FetchTracksData(query.StringValue(), string(i.Locale))
 	if err != nil {
@@ -218,7 +218,7 @@ func playCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID s
 }
 
 func stopCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string) {
-	if cfg.Debug { logger.Debugf("Sent /stop command") }
+	logger.Infof("Received /stop command")
 
 	player, ok := PlayersMap[i.GuildID]
 	if ok {
@@ -239,7 +239,7 @@ func stopCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID s
 }
 
 func clearCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string) {
-	if cfg.Debug { logger.Debugf("Sent /clear command") }
+	logger.Infof("Received /clear command")
 
 	player, ok := PlayersMap[i.GuildID]
 	if ok {
@@ -259,7 +259,7 @@ func clearCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID 
 }
 
 func pauseCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string) {
-	if cfg.Debug { logger.Debugf("Sent /pause command") }
+	logger.Infof("Received /pause command")
 
 	player, ok := PlayersMap[i.GuildID]
 	if ok {
@@ -275,11 +275,11 @@ func pauseCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID 
 		return
 	}
 
-	ErrorInteractionResponse(s, i, "can't pause player")
+	ErrorInteractionResponse(s, i, "Can't pause player")
 }
 
 func queueCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string) {
-	if cfg.Debug { logger.Debugf("Sent /queue command") }
+	logger.Infof("Received /queue command")
 
 	player, ok := PlayersMap[i.GuildID]
 	if ok {
@@ -317,7 +317,7 @@ func removeCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID
 	}
 	posInt := pos.IntValue()
 
-	if cfg.Debug { logger.Debugf("Sent /remove command with pos: %d", posInt) }
+	logger.Infof("Received /remove command with pos: %d", posInt)
 
 	player, ok := PlayersMap[i.GuildID]
 	if ok {
@@ -340,11 +340,11 @@ func removeCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID
 		return
 	}
 
-	ErrorInteractionResponse(s, i, "Can't resume player")
+	ErrorInteractionResponse(s, i, "Can't remove player")
 }
 
 func resumeCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string) {
-	if cfg.Debug { logger.Debugf("Sent /resume command") }
+	logger.Infof("Received /resume command")
 
 	player, ok := PlayersMap[i.GuildID]
 	if ok {
@@ -360,11 +360,11 @@ func resumeCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID
 		return
 	}
 
-	ErrorInteractionResponse(s, i, "can't resume player")
+	ErrorInteractionResponse(s, i, "Can't resume player")
 }
 
 func leaveCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID string) {
-	if cfg.Debug { logger.Debugf("Sent /leave command") }
+	logger.Infof("Received /leave command")
 
 	player, ok := PlayersMap[i.GuildID]
 	if ok {
@@ -374,11 +374,11 @@ func leaveCmdHandler(s *discordgo.Session, i *discordgo.InteractionCreate, vcID 
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("Ciao"),
+				Content: fmt.Sprintf("Bye bye"),
 			},
 		})
 		return
 	}
 
-	ErrorInteractionResponse(s, i, "can't shutdown player")
+	ErrorInteractionResponse(s, i, "Can't shutdown player")
 }

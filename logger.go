@@ -18,8 +18,10 @@ func (logger Logger) Infof(str string, args ...any) {
 }
 
 func (logger Logger) Debugf(str string, args ...any) {
-	msg := fmt.Sprintf(str, args...)
-	log.Println("[DEBUG]: ", msg)
+	if cfg.Debug {
+		msg := fmt.Sprintf(str, args...)
+		log.Println("[DEBUG]: ", msg)
+	}
 }
 
 func (logger Logger) Errorf(str string, args ...any) {

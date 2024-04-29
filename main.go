@@ -5,6 +5,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -45,6 +46,8 @@ func main() {
 	}
 	logger.Infof("Connected succesfully")
 
+	// if bot reconnects, we don't need wait again
+	connected := false
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	// ready event handler
@@ -55,7 +58,10 @@ func main() {
 			logger.Errorf(err.Error())
 		}
 
-		wg.Done()
+		if !connected {
+			wg.Done()
+			connected = true
+		}
 	})
 
 	// open bot session
@@ -75,6 +81,13 @@ func main() {
 
 	// block main goroutine, waiting to stop process
 	logger.Infof("Running now. Press Ctrl+C to stop process")
+
+	go func() {
+		for {
+			time.Sleep(5 * time.Minute)
+			PrintStats()
+		}
+	}()
 
 	<-ctx.Done()
 	logger.Infof("Gracefully shutdown")

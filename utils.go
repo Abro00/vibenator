@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -77,4 +78,15 @@ func getUserVcID(s *discordgo.Session, i *discordgo.InteractionCreate) (string, 
 		}
 	}
   return vcID, nil
+}
+
+func PrintStats() {
+  var m runtime.MemStats
+  runtime.ReadMemStats(&m)
+
+  logger.Debugf("Alloc: %v MiB | Sys: %v MiB | Goroutines: %v", bToMb(m.Alloc), bToMb(m.Sys), runtime.NumGoroutine())
+}
+
+func bToMb(b uint64) uint64 {
+  return b / 1024 / 1024
 }

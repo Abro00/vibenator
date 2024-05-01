@@ -1,6 +1,6 @@
 module vibenator
 
-go 1.21.8
+go 1.21.9
 
 require (
 	github.com/Abro00/dca/v2 v2.0.1

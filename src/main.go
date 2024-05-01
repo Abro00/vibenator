@@ -90,5 +90,5 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	logger.Infof("Gracefully shutdown")
+	logger.Infof("Gracefull shutdown. To force press Ctrl+C again")
 }

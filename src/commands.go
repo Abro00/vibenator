@@ -149,7 +149,7 @@ func unregisterAllCommands(s *discordgo.Session) {
 
 	for _, guild := range s.State.Guilds {
 		guildCommands, err := s.ApplicationCommands(s.State.User.ID, guild.ID)
-		logger.Infof("=== clearing guild commands ===")
+		logger.Infof("=== clearing guild commands [%s:%s] ===", guild.ID, guild.Name)
 		for _, cmd := range guildCommands {
 			logger.Debugf("%+v", *cmd)
 			err = s.ApplicationCommandDelete(s.State.User.ID, cmd.GuildID, cmd.ID)
